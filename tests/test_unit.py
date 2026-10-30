@@ -15,7 +15,9 @@ from src.models.booking import SniperRule
 from src.models.profile import EnrichedDoctorProfile
 from src.models.search import HcpSearchResponse, SeoSpecialtyLink
 from src.pipelines.export import export_global_summary
+from src.pipelines.runner import SweepRunRequest
 from src.pipelines.storage import DoctolibStorage
+from src.web.api import create_app
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -235,3 +237,66 @@ def test_sniper_dry_run_booking_and_mock_dispatcher(tmp_path: Path) -> None:
     exported = export_global_summary(storage, tmp_path / "samples", sniper_max_days=5.0)
     assert exported["urgent_csv"].exists()
     assert exported["booking_intents_json"].exists()
+
+
+@pytest.mark.unit
+def test_fastapi_control_center_endpoints_and_runner_contract(tmp_path: Path) -> None:
+    from fastapi.testclient import TestClient
+
+    req = SweepRunRequest(
+        city="muenchen",
+        specialty="hautarzt",
+        insurance="both",
+        max_doctors=15,
+        sniper_days=5.0,
+        auto_book_mock=True,
+        notify=True,
+    )
+    cli_cmd = req.to_cli_command()
+    assert "--city muenchen" in cli_cmd
+    assert "--specialty hautarzt" in cli_cmd
+    assert "--auto-book-mock" in cli_cmd
+    assert "--notify" in cli_cmd
+
+    db_file = tmp_path / "web_test.db"
+    storage = DoctolibStorage(db_file)
+    raw_search = json.loads((FIXTURES_DIR / "hcp_search_sample.json").read_text(encoding="utf-8"))
+    doc = HcpSearchResponse.model_validate(raw_search).healthcare_providers[0]
+    storage.upsert_provider(doc, "berlin", "kardiologie", "public")
+    storage.insert_slot_snapshot(
+        ComputedAvailability(
+            profile_id=doc.profile_id,
+            practice_id=doc.practice_id,
+            visit_motive_id=13898103,
+            motive_name="Erstuntersuchung",
+            insurance_sector="public",
+            next_slot_iso="2026-10-31T10:00:00+01:00",
+            wait_time_days=1.5,
+            open_slots_count=2,
+        )
+    )
+
+    test_app = create_app(db_path=db_file, samples_dir=tmp_path / "samples")
+    client = TestClient(test_app)
+
+    index_resp = client.get("/")
+    assert index_resp.status_code == 200
+    assert "Doctolib Germany Control Center" in index_resp.text
+
+    meta_resp = client.get("/api/meta")
+    assert meta_resp.status_code == 200
+    assert any(c["slug"] == "berlin" for c in meta_resp.json()["cities"])
+
+    overview_resp = client.get("/api/data/overview?sniper_threshold=7")
+    assert overview_resp.status_code == 200
+    ov = overview_resp.json()
+    assert ov["kpis"]["total_records"] == 1
+    assert ov["kpis"]["urgent_slots"] == 1
+
+    csv_resp = client.get("/api/data/export.csv")
+    assert csv_resp.status_code == 200
+    assert "Dr. med. Ramona Rus" in csv_resp.text
+
+    wh_resp = client.post("/api/webhooks/test", json={"webhook_url": ""})
+    assert wh_resp.status_code == 200
+    assert wh_resp.json()["mode"] in ("SIMULATION", "LIVE")

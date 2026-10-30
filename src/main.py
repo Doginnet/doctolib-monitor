@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
 
-from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -19,11 +17,7 @@ if hasattr(sys.stderr, "reconfigure"):
 from config.cities import DEFAULT_CI_SWEEP_TARGETS, GERMAN_CITIES, MEDICAL_SPECIALTIES
 from config.settings import settings
 from src.alerts.dispatcher import AlertDispatcher
-from src.booking.automator import DryRunBookingAutomator
-from src.core.client import ResilientHttpClient
-from src.extractors.doctolib import DoctolibExtractor
-from src.models.booking import SniperRule
-from src.pipelines.export import export_global_summary, export_scope_samples
+from src.pipelines.runner import SweepRunRequest, execute_doctolib_sweep
 from src.pipelines.storage import DoctolibStorage
 from src.utils.logger import setup_logger
 
@@ -91,6 +85,40 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Max deep profile (/profiles/{slug}.json) enrichments per sweep to stay polite",
     )
     parser.add_argument(
+        "--hour-start",
+        type=int,
+        default=settings.sniper_preferred_hour_start,
+        help="Preferred earliest appointment hour (0-23)",
+    )
+    parser.add_argument(
+        "--hour-end",
+        type=int,
+        default=settings.sniper_preferred_hour_end,
+        help="Preferred latest appointment hour (0-23)",
+    )
+    parser.add_argument(
+        "--include-existing-patients",
+        action="store_true",
+        help="Allow slots reserved for existing patients (disables allow_new_patients_only filter)",
+    )
+    parser.add_argument(
+        "--telehealth-only",
+        action="store_true",
+        help="Match only practitioners offering video consultations (telehealth)",
+    )
+    parser.add_argument(
+        "--min-delay",
+        type=float,
+        default=settings.doctolib_min_delay,
+        help="Minimum polite delay between requests in seconds",
+    )
+    parser.add_argument(
+        "--max-delay",
+        type=float,
+        default=settings.doctolib_max_delay,
+        help="Maximum polite delay between requests in seconds",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -105,7 +133,7 @@ def render_summary_tables(storage: DoctolibStorage, sniper_days: float) -> None:
         limit=15,
     )
     sniper_table = Table(
-        title=f"🎯 Top Urgent Doctolib Slots (Wait <= {sniper_days:.1f} Days)",
+        title=f"Top Urgent Doctolib Slots (Wait <= {sniper_days:.1f} Days)",
         header_style="bold cyan",
     )
     sniper_table.add_column("Doctor / Clinic", style="bold white", max_width=30)
@@ -141,7 +169,7 @@ def render_summary_tables(storage: DoctolibStorage, sniper_days: float) -> None:
     gap_rows = storage.get_insurance_gap_summary(active_only=True)
     if gap_rows:
         gap_table = Table(
-            title="⚖️ GKV (Public) vs. PKV (Private) Wait-Time Gap Analytics",
+            title="GKV (Public) vs. PKV (Private) Wait-Time Gap Analytics",
             header_style="bold magenta",
         )
         gap_table.add_column("City", style="cyan")
@@ -172,133 +200,52 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     setup_logger(level=args.log_level)
 
-    storage = DoctolibStorage(settings.resolved_db_path())
-    samples_dir = settings.resolved_samples_dir()
     dispatcher = AlertDispatcher()
-
-    targets: list[tuple[str, str]] = (
-        DEFAULT_CI_SWEEP_TARGETS
-        if args.ci_sweep
-        else [(args.city.strip().lower(), args.specialty.strip().lower())]
-    )
+    targets_count = len(DEFAULT_CI_SWEEP_TARGETS) if args.ci_sweep else 1
     sectors = ["public", "private"] if args.insurance == "both" else [args.insurance]
-    max_docs = None if args.all else args.max_doctors
 
     console.print(
         Panel.fit(
             f"[bold cyan]Doctolib Germany Real-Time Slot Sniper & Monitor[/bold cyan]\n"
-            f"Targets: [white]{len(targets)}[/white] | Sectors: [yellow]{', '.join(sectors).upper()}[/yellow] | "
+            f"Targets: [white]{targets_count}[/white] | Sectors: [yellow]{', '.join(sectors).upper()}[/yellow] | "
             f"Sniper Threshold: [green]<={args.sniper_days}d[/green] | "
             f"Alert Mode: [magenta]{'SIMULATION (MOCK)' if dispatcher.is_mock_mode else 'LIVE WEBHOOKS'}[/magenta]",
             border_style="cyan",
         )
     )
 
-    total_providers_seen = 0
-    total_snapshots = 0
-    total_sniper_matches = 0
-
-    with ResilientHttpClient() as client:
-        client.warmup()
-        extractor = DoctolibExtractor(client)
-
-        for city_key, specialty_kw in targets:
-            enrichments_done = 0
-
-            for sector in sectors:
-                sweep_start = datetime.now(timezone.utc)
-                rule = SniperRule(
-                    max_wait_days=args.sniper_days,
-                    insurance_sector=sector,
-                    allow_new_patients_only=settings.sniper_allow_new_patients_only,
-                    preferred_hour_start=settings.sniper_preferred_hour_start,
-                    preferred_hour_end=settings.sniper_preferred_hour_end,
-                )
-                automator = DryRunBookingAutomator(
-                    rule=rule,
-                    storage=storage,
-                    extractor=extractor,
-                )
-
-                for card in extractor.iter_providers(
-                    keyword=specialty_kw,
-                    city_key=city_key,
-                    insurance_sector=sector,
-                    max_doctors=max_docs,
-                ):
-                    storage.upsert_provider(
-                        card=card,
-                        city_key=city_key,
-                        search_keyword=specialty_kw,
-                        insurance_sector=sector,
-                    )
-                    total_providers_seen += 1
-
-                    if not card.is_bookable:
-                        continue
-
-                    try:
-                        avail = extractor.fetch_provider_availability(
-                            provider=card,
-                            insurance_sector=sector,
-                            limit_days=15,
-                        )
-                    except Exception as avail_err:
-                        logger.warning(
-                            f"Availability fetch failed for {card.profile_slug}: {avail_err}"
-                        )
-                        continue
-
-                    if avail is None:
-                        continue
-
-                    storage.insert_slot_snapshot(avail)
-                    total_snapshots += 1
-
-                    if args.auto_book_mock or args.notify:
-                        should_enrich = enrichments_done < args.max_enrichments
-                        intent = automator.evaluate_and_reserve_mock(
-                            provider=card,
-                            avail=avail,
-                            enrich_profile=should_enrich,
-                        )
-                        if intent is not None:
-                            total_sniper_matches += 1
-                            if should_enrich:
-                                enrichments_done += 1
-                            if args.notify:
-                                dispatcher.dispatch(intent)
-
-                    client.polite_sleep()
-
-                if args.all:
-                    storage.deactivate_unseen_providers(
-                        city_key=city_key,
-                        search_keyword=specialty_kw,
-                        insurance_sector=sector,
-                        sweep_start_time=sweep_start,
-                    )
-
-            export_scope_samples(
-                storage=storage,
-                samples_dir=samples_dir,
-                city_slug=city_key,
-                specialty_slug=specialty_kw,
-                sniper_max_days=args.sniper_days,
-            )
-
-    export_global_summary(
-        storage=storage,
-        samples_dir=samples_dir,
-        sniper_max_days=args.sniper_days,
+    run_config = SweepRunRequest(
+        city=args.city,
+        specialty=args.specialty,
+        insurance=args.insurance,
+        max_doctors=args.max_doctors,
+        sniper_days=args.sniper_days,
+        max_enrichments=args.max_enrichments,
+        preferred_hour_start=args.hour_start,
+        preferred_hour_end=args.hour_end,
+        min_delay=args.min_delay,
+        max_delay=args.max_delay,
+        log_level=args.log_level,
+        ci_sweep=args.ci_sweep,
+        scrape_all=args.all,
+        auto_book_mock=args.auto_book_mock,
+        notify=args.notify,
+        allow_new_patients_only=not args.include_existing_patients,
+        require_telehealth=args.telehealth_only,
     )
+
+    summary = execute_doctolib_sweep(run_config)
+    if summary.status == "failed":
+        console.print(f"[bold red]Sweep failed:[/bold red] {summary.error_message}")
+        return 1
 
     console.print(
-        f"\n[bold green]Sweep Completed:[/bold green] "
-        f"{total_providers_seen} provider records | "
-        f"{total_snapshots} live calendars checked | "
-        f"{total_sniper_matches} sniper intents generated.\n"
+        f"\n[bold green]Sweep Completed ({summary.elapsed_seconds}s):[/bold green] "
+        f"{summary.providers_seen} provider records | "
+        f"{summary.calendars_checked} live calendars checked | "
+        f"{summary.sniper_matches} sniper intents generated.\n"
     )
+    storage = DoctolibStorage(settings.resolved_db_path())
     render_summary_tables(storage, sniper_days=args.sniper_days)
     return 0
 

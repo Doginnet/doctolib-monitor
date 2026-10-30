@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doctolib Germany — Slot Sniper &amp; Wait-Time Control Center</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='12' fill='%2310b981'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+    :root {
+      --bg-base: #0b0f17;
+      --bg-panel: #111827;
+      --bg-card: #161f30;
+      --bg-input: #0d1320;
+      --border: #243147;
+      --border-focus: #38bdf8;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #0ea5e9;
+      --accent-hover: #0284c7;
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.14);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.14);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.14);
+      --gkv: #38bdf8;
+      --gkv-bg: rgba(56, 189, 248, 0.15);
+      --pkv: #fbbf24;
+      --pkv-bg: rgba(251, 191, 36, 0.15);
+      --radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(17, 24, 39, 0.92);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px var(--green);
+    }
+
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .brand span {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+    }
+
+    .pill.running {
+      color: var(--amber);
+      border-color: rgba(245, 158, 11, 0.4);
+      background: var(--amber-bg);
+    }
+
+    .pill.completed, .pill.live {
+      color: var(--green);
+      border-color: rgba(16, 185, 129, 0.4);
+      background: var(--green-bg);
+    }
+
+    .pill.failed {
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.4);
+      background: var(--red-bg);
+    }
+
+    .api-link {
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(14, 165, 233, 0.35);
+      background: rgba(14, 165, 233, 0.08);
+    }
+
+    .api-link:hover {
+      background: rgba(14, 165, 233, 0.18);
+    }
+
+    /* Main Grid */
+    .layout {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1720px;
+      margin: 0 auto;
+      align-items: start;
+    }
+
+    @media (max-width: 1120px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Form Controls */
+    .section-divider {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin: 16px 0 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-divider:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .field-grid .field {
+      margin-bottom: 0;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+    }
+
+    input:disabled, select:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Checkboxes */
+    .checkbox-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .check-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 11px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .check-card:hover {
+      border-color: #364968;
+      background: rgba(22, 31, 48, 0.7);
+    }
+
+    .check-card input[type="checkbox"] {
+      margin-top: 2px;
+      width: 15px;
+      height: 15px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .check-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .check-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .check-title code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 500;
+      margin-left: 4px;
+    }
+
+    .check-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* CLI Preview Box */
+    .cli-box {
+      margin-top: 14px;
+      background: #080c14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .cli-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .cli-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #7dd3fc;
+      word-break: break-all;
+      line-height: 1.45;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      background: var(--red-bg);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.45);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.26);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border);
+      padding: 7px 12px;
+      font-size: 12px;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+    }
+
+    .btn-mini {
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 5px;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-mini:hover {
+      color: var(--text-main);
+      border-color: var(--accent);
+    }
+
+    /* Right Workspace */
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Live Runner Status & Console */
+    .runner-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .runner-stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .runner-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .stat-mini {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+    }
+
+    .stat-mini-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-mini-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: var(--text-main);
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+      transition: width 0.25s ease;
+    }
+
+    .console-box {
+      background: #070a10;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      height: 165px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.55;
+    }
+
+    .log-line {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log-ts { color: #475569; margin-right: 8px; }
+    .log-INFO { color: #e2e8f0; }
+    .log-DEBUG { color: #64748b; }
+    .log-WARNING { color: #fbbf24; }
+    .log-ERROR { color: #f87171; }
+    .log-match { color: #34d399; font-weight: 600; }
+
+    /* KPI Strip */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 1000px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .kpi-label {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .kpi-val {
+      font-size: 23px;
+      font-weight: 700;
+      margin-top: 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* Filter & Export Bar */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+
+    .toolbar-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toolbar-filters select {
+      width: auto;
+      min-width: 145px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      padding: 7px 14px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      background: rgba(14, 165, 233, 0.14);
+      color: #38bdf8;
+      border-color: rgba(14, 165, 233, 0.35);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Map & Sniper Split */
+    .sniper-split {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1280px) {
+      .sniper-split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    #clinicMap {
+      height: 500px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0b101b;
+    }
+
+    #clinicMap .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(92%);
+    }
+
+    #clinicMap .leaflet-control-attribution {
+      background: rgba(11, 15, 23, 0.82);
+      color: var(--text-dim);
+    }
+
+    #clinicMap .leaflet-control-attribution a {
+      color: var(--accent);
+    }
+
+    .map-legend {
+      display: flex;
+      gap: 14px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .sniper-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 525px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .slot-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slot-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .slot-doc {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .slot-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .slot-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-gkv {
+      background: var(--gkv-bg);
+      color: var(--gkv);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .badge-pkv {
+      background: var(--pkv-bg);
+      color: var(--pkv);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
+    .badge-wait-fast {
+      background: var(--green-bg);
+      color: #34d399;
+    }
+
+    .badge-wait-mid {
+      background: var(--amber-bg);
+      color: #fbbf24;
+    }
+
+    .badge-wait-slow {
+      background: var(--red-bg);
+      color: #f87171;
+    }
+
+    .book-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .book-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(36, 49, 71, 0.55);
+      color: var(--text-main);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* JSON Inspector */
+    .json-pre {
+      background: #070a10;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      color: #a5f3fc;
+      overflow-x: auto;
+      max-height: 360px;
+    }
+
+    .empty-msg {
+      padding: 28px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-dot" id="headerDot"></div>
+      <div>
+        <h1>Doctolib Germany Control Center <span>FastAPI Launcher &amp; GKV/PKV Wait-Time Monitor</span></h1>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill" id="webhookModePill">Webhook: Simulation</span>
+      <span class="pill" id="jobStatePill">Job: Idle</span>
+      <a class="api-link" href="/docs" target="_blank" rel="noopener">OpenAPI / Swagger</a>
+    </div>
+  </header>
+
+  <!-- Main 2-Column Layout -->
+  <main class="layout">
+
+    <!-- LEFT COLUMN: Complete Scraper Parameter & Flag Form -->
+    <aside class="panel">
+      <div class="panel-title">
+        <span>Scraper Configuration</span>
+        <button type="button" class="btn-mini" id="resetDefaultsBtn">Reset Defaults</button>
+      </div>
+
+      <form id="scrapeForm">
+        <div class="section-divider">1. Target &amp; Scope</div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="citySelect">German City</label>
+            <select id="citySelect"></select>
+          </div>
+          <div class="field">
+            <label for="insuranceSelect">Insurance Sector</label>
+            <select id="insuranceSelect">
+              <option value="both">Both (GKV + PKV)</option>
+              <option value="public">Public (GKV / Gesetzlich)</option>
+              <option value="private">Private (PKV / Privat)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="specialtySelect">Medical Specialty</label>
+          <select id="specialtySelect"></select>
+        </div>
+
+        <div class="field" id="customSpecialtyWrap" style="display: none;">
+          <label for="customSpecialtyInput">Custom Doctolib Keyword / Slug</label>
+          <input type="text" id="customSpecialtyInput" placeholder="e.g. psychotherapie, mrt, endokrinologie" />
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="maxDoctorsInput">Max Doctors / Scope</label>
+            <input type="number" id="maxDoctorsInput" min="1" max="500" value="20" />
+          </div>
+          <div class="field">
+            <label for="limitDaysInput">Calendar Window (d)</label>
+            <input type="number" id="limitDaysInput" min="1" max="15" value="15" />
+          </div>
+        </div>
+
+        <div class="section-divider">2. Sniper &amp; Enrichment Parameters</div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="sniperDaysInput">Sniper Max Wait (days)</label>
+            <input type="number" id="sniperDaysInput" min="0" max="365" step="0.5" value="7" />
+          </div>
+          <div class="field">
+            <label for="maxEnrichmentsInput">Max Phone Enrichments</label>
+            <input type="number" id="maxEnrichmentsInput" min="0" max="100" value="8" />
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="hourStartInput">Earliest Hour (0-23)</label>
+            <input type="number" id="hourStartInput" min="0" max="23" value="8" />
+          </div>
+          <div class="field">
+            <label for="hourEndInput">Latest Hour (0-23)</label>
+            <input type="number" id="hourEndInput" min="0" max="23" value="19" />
+          </div>
+        </div>
+
+        <div class="section-divider">3. Execution Flags</div>
+
+        <div class="checkbox-list">
+          <label class="check-card">
+            <input type="checkbox" id="flagAutoBookMock" checked />
+            <div class="check-text">
+              <span class="check-title">Dry-Run Auto-Booking<code>--auto-book-mock</code></span>
+              <span class="check-desc">Enrich urgent matches with clinic landline phone &amp; record mock booking intents</span>
+            </div>
+          </label>
+
+          <label class="check-card">
+            <input type="checkbox" id="flagNotify" />
+            <div class="check-text">
+              <span class="check-title">Dispatch Webhook Alerts<code>--notify</code></span>
+              <span class="check-desc">Send urgent slot payloads to n8n / Slack / Telegram (Safe Mock if empty)</span>
+            </div>
+          </label>
+
+          <label class="check-card">
+            <input type="checkbox" id="flagCiSweep" />
+            <div class="check-text">
+              <span class="check-title">Multi-City CI Benchmark<code>--ci-sweep</code></span>
+              <span class="check-desc">Run preset benchmark across Berlin, München &amp; Hamburg specialties</span>
+            </div>
+          </label>
+
+          <label class="check-card">
+            <input type="checkbox" id="flagScrapeAll" />
+            <div class="check-text">
+              <span class="check-title">Full Directory + Lifecycle Sync<code>--all</code></span>
+              <span class="check-desc">Paginate all pages and soft-deactivate unseen providers (is_active = 0)</span>
+            </div>
+          </label>
+
+          <label class="check-card">
+            <input type="checkbox" id="flagNewPatientsOnly" checked />
+            <div class="check-text">
+              <span class="check-title">New Patients Only<code>Neupatient:innen</code></span>
+              <span class="check-desc">Filter out agendas restricted to existing clinic patients</span>
+            </div>
+          </label>
+
+          <label class="check-card">
+            <input type="checkbox" id="flagTelehealthOnly" />
+            <div class="check-text">
+              <span class="check-title">Telehealth / Video Only<code>--telehealth-only</code></span>
+              <span class="check-desc">Match only practitioners offering online video consultations</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="section-divider">4. Network Rate-Limit &amp; Webhook Override</div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="minDelayInput">Min Delay (sec)</label>
+            <input type="number" id="minDelayInput" min="0" max="10" step="0.05" value="0.35" />
+          </div>
+          <div class="field">
+            <label for="maxDelayInput">Max Delay (sec)</label>
+            <input type="number" id="maxDelayInput" min="0" max="20" step="0.05" value="0.85" />
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="logLevelSelect">Log Verbosity</label>
+            <select id="logLevelSelect">
+              <option value="INFO">INFO</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+          </div>
+          <div class="field" style="justify-content: flex-end;">
+            <button type="button" class="btn-secondary" id="testWebhookBtn" style="height: 35px;">Send Test Webhook</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="webhookOverrideInput">Optional n8n / Custom Webhook URL Override</label>
+          <input type="url" id="webhookOverrideInput" placeholder="https://your-n8n.host/webhook/doctolib-sniper" />
+        </div>
+
+        <div class="cli-box">
+          <div class="cli-box-header">
+            <span>Equivalent CLI Command</span>
+            <button type="button" class="btn-mini" id="copyCliBtn">Copy</button>
+          </div>
+          <div class="cli-code" id="cliPreviewText">uv run python -m src.main</div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" class="btn-primary" id="startBtn">Start Doctolib Sweep</button>
+          <button type="button" class="btn-danger" id="stopBtn" disabled>Stop</button>
+        </div>
+      </form>
+    </aside>
+
+    <!-- RIGHT COLUMN: Live Job Console, KPIs, Map, Sniper & Analytics -->
+    <section class="workspace">
+
+      <!-- Live Execution Telemetry -->
+      <div class="panel runner-bar">
+        <div class="panel-title" style="margin-bottom: 4px;">
+          <span>Live Execution Telemetry &amp; Stream</span>
+          <span id="currentScopeLabel" style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--accent);">Idle</span>
+        </div>
+
+        <div class="runner-stats">
+          <div class="stat-mini">
+            <div class="stat-mini-label">Scopes</div>
+            <div class="stat-mini-val" id="progScopes">0 / 0</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-label">Providers Seen</div>
+            <div class="stat-mini-val" id="progProviders">0</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-label">Calendars Checked</div>
+            <div class="stat-mini-val" id="progCalendars">0</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-label">Sniper Matches</div>
+            <div class="stat-mini-val" id="progMatches" style="color: var(--green);">0</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-label">Elapsed</div>
+            <div class="stat-mini-val" id="progElapsed">0.0s</div>
+          </div>
+        </div>
+
+        <div class="progress-track">
+          <div class="progress-fill" id="progressBarFill"></div>
+        </div>
+
+        <div class="console-box" id="logConsole">
+          <div class="log-line log-DEBUG">Ready. Configure parameters on the left and click "Start Doctolib Sweep", or explore stored SQLite records below.</div>
+        </div>
+      </div>
+
+      <!-- Stored Database KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Active Calendars</div>
+          <div class="kpi-val" id="kpiTotal">0</div>
+          <div class="kpi-sub" id="kpiBookableSub">0 with open dates</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Urgent Sniper Slots</div>
+          <div class="kpi-val" id="kpiUrgent" style="color: var(--green);">0</div>
+          <div class="kpi-sub" id="kpiUrgentSub">Within sniper threshold</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">GKV (Public) Avg Wait</div>
+          <div class="kpi-val" id="kpiPublicWait" style="color: var(--gkv);">—</div>
+          <div class="kpi-sub">Gesetzlich versichert</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PKV (Private) Avg Wait</div>
+          <div class="kpi-val" id="kpiPrivateWait" style="color: var(--pkv);">—</div>
+          <div class="kpi-sub">Privat versichert</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PKV Speed Multiplier</div>
+          <div class="kpi-val" id="kpiMultiplier">—</div>
+          <div class="kpi-sub">GKV vs. PKV ratio</div>
+        </div>
+      </div>
+
+      <!-- Filter & Export Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-filters">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Database View:</span>
+          <select id="filterCity">
+            <option value="all">All Cities</option>
+          </select>
+          <select id="filterSpecialty">
+            <option value="all">All Specialties</option>
+          </select>
+          <select id="filterInsurance">
+            <option value="all">All Insurance Sectors</option>
+            <option value="public">GKV (Public)</option>
+            <option value="private">PKV (Private)</option>
+          </select>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; margin-left: 4px;">
+            <input type="checkbox" id="filterBookableOnly" style="accent-color: var(--accent);" />
+            Bookable Only
+          </label>
+        </div>
+
+        <div class="toolbar-actions">
+          <button type="button" class="btn-secondary" id="refreshDataBtn">Refresh</button>
+          <button type="button" class="btn-secondary" id="exportCsvBtn">Export CSV</button>
+          <button type="button" class="btn-secondary" id="exportJsonBtn">Export JSON</button>
+        </div>
+      </div>
+
+      <!-- Data Visualization Tabs -->
+      <div class="panel">
+        <div class="tabs">
+          <button type="button" class="tab-btn active" data-tab="tabSniper">Geo-Map &amp; Urgent Sniper Feed</button>
+          <button type="button" class="tab-btn" data-tab="tabGap">GKV vs. PKV Gap Analytics</button>
+          <button type="button" class="tab-btn" data-tab="tabDirectory">Full Directory Table</button>
+          <button type="button" class="tab-btn" data-tab="tabWebhooks">Webhook &amp; n8n Payload Inspector</button>
+        </div>
+
+        <!-- TAB 1: Geo-Map + Urgent Sniper Cards -->
+        <div class="tab-pane active" id="tabSniper">
+          <div class="sniper-split">
+            <div>
+              <div id="clinicMap"></div>
+              <div class="map-legend">
+                <span><i class="legend-dot" style="background: #10b981;"></i>0 - 3 days</span>
+                <span><i class="legend-dot" style="background: #f59e0b;"></i>4 - 14 days</span>
+                <span><i class="legend-dot" style="background: #ef4444;"></i>15+ days</span>
+                <span><i class="legend-dot" style="background: #64748b;"></i>No online slot</span>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
+                Earliest Available Appointments
+              </div>
+              <div class="sniper-list" id="sniperCardsContainer"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: GKV vs PKV Gap Table -->
+        <div class="tab-pane" id="tabGap">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>City</th>
+                  <th>Canonical Specialty</th>
+                  <th>Insurance Sector</th>
+                  <th>Calendars Checked</th>
+                  <th>With Open Slots</th>
+                  <th>Min Wait (d)</th>
+                  <th>Avg Wait (d)</th>
+                  <th>Max Wait (d)</th>
+                </tr>
+              </thead>
+              <tbody id="gapTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: Full Directory Table -->
+        <div class="tab-pane" id="tabDirectory">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Practitioner / Clinic</th>
+                  <th>City</th>
+                  <th>Specialty</th>
+                  <th>Sector</th>
+                  <th>Wait (d)</th>
+                  <th>Earliest Slot</th>
+                  <th>Open (15d)</th>
+                  <th>Phone</th>
+                  <th>Booking</th>
+                </tr>
+              </thead>
+              <tbody id="directoryTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 4: Webhook & n8n Payload Inspector -->
+        <div class="tab-pane" id="tabWebhooks">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
+                Recorded Dry-Run Booking Intents
+              </div>
+              <div class="sniper-list" id="intentsListContainer" style="max-height: 360px;"></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                  BookingIntentPayload JSON (n8n / Webhook Contract)
+                </span>
+                <button type="button" class="btn-mini" id="copyPayloadBtn">Copy JSON</button>
+              </div>
+              <pre class="json-pre" id="payloadInspectorPre">{}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    let metaData = null;
+    let pollTimer = null;
+    let lastLogSeq = 0;
+    let wasRunning = false;
+    let leafletMap = null;
+    let markersLayer = null;
+
+    const el = (id) => document.getElementById(id);
+
+    function escapeHtml(val) {
+      if (val === null || val === undefined) return '';
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getSelectedSpecialty() {
+      const sel = el('specialtySelect').value;
+      if (sel === '__custom__') {
+        return (el('customSpecialtyInput').value || 'kardiologie').trim().toLowerCase();
+      }
+      return sel;
+    }
+
+    function buildPayloadFromForm() {
+      return {
+        city: el('citySelect').value,
+        specialty: getSelectedSpecialty(),
+        insurance: el('insuranceSelect').value,
+        max_doctors: parseInt(el('maxDoctorsInput').value || '20', 10),
+        limit_days: parseInt(el('limitDaysInput').value || '15', 10),
+        sniper_days: parseFloat(el('sniperDaysInput').value || '7'),
+        max_enrichments: parseInt(el('maxEnrichmentsInput').value || '8', 10),
+        preferred_hour_start: parseInt(el('hourStartInput').value || '8', 10),
+        preferred_hour_end: parseInt(el('hourEndInput').value || '19', 10),
+        min_delay: parseFloat(el('minDelayInput').value || '0.35'),
+        max_delay: parseFloat(el('maxDelayInput').value || '0.85'),
+        log_level: el('logLevelSelect').value,
+        webhook_url_override: el('webhookOverrideInput').value.trim(),
+        ci_sweep: el('flagCiSweep').checked,
+        scrape_all: el('flagScrapeAll').checked,
+        auto_book_mock: el('flagAutoBookMock').checked,
+        notify: el('flagNotify').checked,
+        allow_new_patients_only: el('flagNewPatientsOnly').checked,
+        require_telehealth: el('flagTelehealthOnly').checked,
+      };
+    }
+
+    function updateFormInteractivity() {
+      const isCi = el('flagCiSweep').checked;
+      const isAll = el('flagScrapeAll').checked;
+      const isCustomSpec = el('specialtySelect').value === '__custom__';
+
+      el('citySelect').disabled = isCi;
+      el('specialtySelect').disabled = isCi;
+      el('customSpecialtyInput').disabled = isCi;
+      el('customSpecialtyWrap').style.display = isCustomSpec ? 'flex' : 'none';
+      el('maxDoctorsInput').disabled = isAll;
+
+      const p = buildPayloadFromForm();
+      const parts = ['uv run python -m src.main'];
+      if (p.ci_sweep) {
+        parts.push('--ci-sweep');
+      } else {
+        parts.push(`--city ${p.city}`);
+        parts.push(`--specialty ${p.specialty}`);
+      }
+      parts.push(`--insurance ${p.insurance}`);
+      if (p.scrape_all) {
+        parts.push('--all');
+      } else {
+        parts.push(`--max-doctors ${p.max_doctors}`);
+      }
+      parts.push(`--sniper-days ${p.sniper_days}`);
+      parts.push(`--max-enrichments ${p.max_enrichments}`);
+      if (p.auto_book_mock) parts.push('--auto-book-mock');
+      if (p.notify) parts.push('--notify');
+      if (!p.allow_new_patients_only) parts.push('--include-existing-patients');
+      if (p.require_telehealth) parts.push('--telehealth-only');
+      if (p.log_level !== 'INFO') parts.push(`--log-level ${p.log_level}`);
+
+      el('cliPreviewText').textContent = parts.join(' ');
+    }
+
+    async function loadMeta() {
+      const resp = await fetch('/api/meta');
+      metaData = await resp.json();
+
+      const citySel = el('citySelect');
+      citySel.innerHTML = metaData.cities
+        .map((c) => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)} (${escapeHtml(c.slug)})</option>`)
+        .join('');
+
+      const specSel = el('specialtySelect');
+      specSel.innerHTML =
+        metaData.specialties
+          .map((s) => `<option value="${escapeHtml(s.slug)}">${escapeHtml(s.label)}</option>`)
+          .join('') +
+        `<option value="__custom__">Custom Keyword / Slug...</option>`;
+
+      applyDefaults();
+
+      const whPill = el('webhookModePill');
+      if (metaData.webhooks.is_mock_mode) {
+        whPill.textContent = 'Webhook: Simulation';
+        whPill.className = 'pill';
+      } else {
+        whPill.textContent = 'Webhook: Live Configured';
+        whPill.className = 'pill live';
+      }
+    }
+
+    function applyDefaults() {
+      if (!metaData) return;
+      const d = metaData.defaults;
+      el('citySelect').value = d.city;
+      el('specialtySelect').value = d.specialty;
+      el('insuranceSelect').value = d.insurance;
+      el('maxDoctorsInput').value = d.max_doctors;
+      el('limitDaysInput').value = d.limit_days;
+      el('sniperDaysInput').value = d.sniper_days;
+      el('maxEnrichmentsInput').value = d.max_enrichments;
+      el('hourStartInput').value = d.preferred_hour_start;
+      el('hourEndInput').value = d.preferred_hour_end;
+      el('minDelayInput').value = d.min_delay;
+      el('maxDelayInput').value = d.max_delay;
+      el('logLevelSelect').value = d.log_level;
+      el('flagCiSweep').checked = d.ci_sweep;
+      el('flagScrapeAll').checked = d.scrape_all;
+      el('flagAutoBookMock').checked = d.auto_book_mock;
+      el('flagNotify').checked = d.notify;
+      el('flagNewPatientsOnly').checked = d.allow_new_patients_only;
+      el('flagTelehealthOnly').checked = d.require_telehealth;
+      el('webhookOverrideInput').value = '';
+      updateFormInteractivity();
+    }
+
+    function initMap() {
+      leafletMap = L.map('clinicMap', { preferCanvas: true }).setView([52.52, 13.405], 11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(leafletMap);
+      markersLayer = L.layerGroup().addTo(leafletMap);
+    }
+
+    function waitColor(waitDays) {
+      if (waitDays === null || waitDays === undefined) return '#64748b';
+      if (waitDays <= 3) return '#10b981';
+      if (waitDays <= 14) return '#f59e0b';
+      return '#ef4444';
+    }
+
+    function waitBadgeClass(waitDays) {
+      if (waitDays === null || waitDays === undefined) return '';
+      if (waitDays <= 3) return 'badge-wait-fast';
+      if (waitDays <= 14) return 'badge-wait-mid';
+      return 'badge-wait-slow';
+    }
+
+    function syncFilterDropdowns(availFilters) {
+      const cityFilter = el('filterCity');
+      const curCity = cityFilter.value;
+      cityFilter.innerHTML =
+        `<option value="all">All Cities</option>` +
+        availFilters.cities
+          .map((c) => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`)
+          .join('');
+      if ([...cityFilter.options].some((o) => o.value === curCity)) {
+        cityFilter.value = curCity;
+      }
+
+      const specFilter = el('filterSpecialty');
+      const curSpec = specFilter.value;
+      specFilter.innerHTML =
+        `<option value="all">All Specialties</option>` +
+        availFilters.specialties
+          .map((s) => `<option value="${escapeHtml(s.slug)}">${escapeHtml(s.name)}</option>`)
+          .join('');
+      if ([...specFilter.options].some((o) => o.value === curSpec)) {
+        specFilter.value = curSpec;
+      }
+    }
+
+    function buildFilterQueryString() {
+      const params = new URLSearchParams();
+      params.set('city', el('filterCity').value);
+      params.set('specialty', el('filterSpecialty').value);
+      params.set('insurance', el('filterInsurance').value);
+      params.set('sniper_threshold', el('sniperDaysInput').value || '7');
+      if (el('filterBookableOnly').checked) {
+        params.set('bookable_only', 'true');
+      }
+      return params.toString();
+    }
+
+    async function refreshOverviewData() {
+      const qs = buildFilterQueryString();
+      const resp = await fetch(`/api/data/overview?${qs}`);
+      const data = await resp.json();
+
+      syncFilterDropdowns(data.available_filters);
+
+      const k = data.kpis;
+      el('kpiTotal').textContent = k.total_records;
+      el('kpiBookableSub').textContent = `${k.bookable_records} with open dates`;
+      el('kpiUrgent').textContent = k.urgent_slots;
+      el('kpiUrgentSub').textContent = `Wait <= ${el('sniperDaysInput').value || 7} days`;
+      el('kpiPublicWait').textContent = k.public_avg_wait !== null ? `${k.public_avg_wait}d` : '—';
+      el('kpiPrivateWait').textContent = k.private_avg_wait !== null ? `${k.private_avg_wait}d` : '—';
+      el('kpiMultiplier').textContent = k.access_multiplier !== null ? `${k.access_multiplier}x` : '—';
+
+      renderGeoMap(data.records);
+      renderSniperCards(data.records);
+      renderGapTable(data.insurance_gap);
+      renderDirectoryTable(data.records);
+      renderBookingIntents(data.booking_intents);
+    }
+
+    function renderGeoMap(records) {
+      if (!leafletMap || !markersLayer) return;
+      markersLayer.clearLayers();
+      const coords = [];
+
+      records.forEach((r) => {
+        if (r.latitude && r.longitude) {
+          const color = waitColor(r.wait_time_days);
+          const marker = L.circleMarker([r.latitude, r.longitude], {
+            radius: 7,
+            fillColor: color,
+            color: '#0b0f17',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.9,
+          });
+
+          const slotFmt = r.next_slot_iso ? r.next_slot_iso.slice(0, 16).replace('T', ' ') : 'No open slot';
+          const waitTxt = r.wait_time_days !== null ? `${r.wait_time_days} days` : 'N/A';
+          const phoneTxt = r.landline_number ? `<br/>Tel: <b>${escapeHtml(r.landline_number)}</b>` : '';
+
+          marker.bindPopup(
+            `<div style="font-family: Inter, sans-serif; font-size: 12px; line-height: 1.45;">
+              <b>${escapeHtml(r.full_name)}</b><br/>
+              ${escapeHtml(r.specialty_name)} (${escapeHtml((r.insurance_sector || '').toUpperCase())})<br/>
+              Earliest: <b>${escapeHtml(slotFmt)}</b> (${escapeHtml(waitTxt)})${phoneTxt}<br/>
+              <a href="${escapeHtml(r.profile_url)}" target="_blank" rel="noopener">Open on Doctolib &rarr;</a>
+            </div>`
+          );
+          marker.addTo(markersLayer);
+          coords.push([r.latitude, r.longitude]);
+        }
+      });
+
+      if (coords.length > 0) {
+        leafletMap.fitBounds(coords, { padding: [28, 28], maxZoom: 13 });
+      }
+    }
+
+    function renderSniperCards(records) {
+      const container = el('sniperCardsContainer');
+      const bookable = records.filter((r) => r.wait_time_days !== null).slice(0, 25);
+
+      if (bookable.length === 0) {
+        container.innerHTML = `<div class="empty-msg">No bookable slots match current filters. Launch a sweep on the left.</div>`;
+        return;
+      }
+
+      container.innerHTML = bookable
+        .map((r) => {
+          const isGkv = r.insurance_sector === 'public';
+          const secBadge = isGkv
+            ? `<span class="badge badge-gkv">GKV</span>`
+            : `<span class="badge badge-pkv">PKV</span>`;
+          const waitCls = waitBadgeClass(r.wait_time_days);
+          const slotStr = (r.next_slot_iso || '').slice(0, 16).replace('T', ' ');
+          const phoneStr = r.landline_number ? ` | Tel: ${escapeHtml(r.landline_number)}` : '';
+          const addrStr = [r.street_address, r.zipcode, r.city_name].filter(Boolean).join(', ');
+
+          return `
+            <div class="slot-card">
+              <div class="slot-card-top">
+                <div>
+                  <div class="slot-doc">${escapeHtml(r.full_name)}</div>
+                  <div class="slot-meta">${escapeHtml(r.specialty_name)} &bull; ${escapeHtml(addrStr)}${phoneStr}</div>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  ${secBadge}
+                  <span class="badge ${waitCls}">${r.wait_time_days}d</span>
+                </div>
+              </div>
+              <div class="slot-bottom">
+                <span style="font-family: 'JetBrains Mono', monospace; color: #e2e8f0;">Slot: ${escapeHtml(slotStr)}</span>
+                <a class="book-link" href="${escapeHtml(r.profile_url)}" target="_blank" rel="noopener">Book on Doctolib &rarr;</a>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderGapTable(gapRows) {
+      const tbody = el('gapTableBody');
+      if (!gapRows || gapRows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">No GKV/PKV comparison records yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = gapRows
+        .map((g) => {
+          const isGkv = g.insurance_sector === 'public';
+          const badge = isGkv
+            ? `<span class="badge badge-gkv">GKV (Public)</span>`
+            : `<span class="badge badge-pkv">PKV (Private)</span>`;
+          return `
+            <tr>
+              <td><b>${escapeHtml(g.city_name)}</b></td>
+              <td>${escapeHtml(g.specialty_name)}</td>
+              <td>${badge}</td>
+              <td>${g.total_checked}</td>
+              <td>${g.with_open_slots}</td>
+              <td>${g.min_wait_days !== null ? g.min_wait_days + 'd' : '—'}</td>
+              <td><b>${g.avg_wait_days !== null ? g.avg_wait_days + 'd' : '—'}</b></td>
+              <td>${g.max_wait_days !== null ? g.max_wait_days + 'd' : '—'}</td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    function renderDirectoryTable(records) {
+      const tbody = el('directoryTableBody');
+      if (!records || records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-msg">No directory records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records
+        .slice(0, 200)
+        .map((r) => {
+          const isGkv = r.insurance_sector === 'public';
+          const badge = isGkv
+            ? `<span class="badge badge-gkv">GKV</span>`
+            : `<span class="badge badge-pkv">PKV</span>`;
+          const slotStr = r.next_slot_iso ? r.next_slot_iso.slice(0, 16).replace('T', ' ') : '—';
+          const waitStr = r.wait_time_days !== null ? `${r.wait_time_days}d` : '—';
+          return `
+            <tr>
+              <td><b>${escapeHtml(r.full_name)}</b></td>
+              <td>${escapeHtml(r.city_name)}</td>
+              <td>${escapeHtml(r.specialty_name)}</td>
+              <td>${badge}</td>
+              <td>${waitStr}</td>
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">${escapeHtml(slotStr)}</td>
+              <td>${r.open_slots_count || 0}</td>
+              <td>${escapeHtml(r.landline_number || '—')}</td>
+              <td><a class="book-link" href="${escapeHtml(r.profile_url)}" target="_blank" rel="noopener">Profile</a></td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    function renderBookingIntents(intents) {
+      const listEl = el('intentsListContainer');
+      const preEl = el('payloadInspectorPre');
+
+      if (!intents || intents.length === 0) {
+        listEl.innerHTML = `<div class="empty-msg">No dry-run booking intents recorded yet. Run with --auto-book-mock enabled.</div>`;
+        preEl.textContent = '{}';
+        return;
+      }
+
+      preEl.textContent = JSON.stringify(intents[0].payload, null, 2);
+
+      listEl.innerHTML = intents
+        .map((item, idx) => {
+          const isGkv = item.insurance_sector === 'public';
+          const badge = isGkv
+            ? `<span class="badge badge-gkv">GKV</span>`
+            : `<span class="badge badge-pkv">PKV</span>`;
+          const slotStr = (item.target_slot_iso || '').slice(0, 16).replace('T', ' ');
+          return `
+            <div class="slot-card" style="cursor: pointer;" data-intent-idx="${idx}">
+              <div class="slot-card-top">
+                <div>
+                  <div class="slot-doc">${escapeHtml(item.doctor_name)}</div>
+                  <div class="slot-meta">${escapeHtml(item.specialty)} &bull; ${escapeHtml(item.city)}</div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                  ${badge}
+                  <span class="badge badge-wait-fast">${item.wait_time_days}d</span>
+                </div>
+              </div>
+              <div class="slot-bottom">
+                <span style="font-family: 'JetBrains Mono', monospace;">${escapeHtml(slotStr)}</span>
+                <span style="font-size: 11px; color: var(--green);">${escapeHtml(item.status)}</span>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      listEl.querySelectorAll('[data-intent-idx]').forEach((card) => {
+        card.addEventListener('click', () => {
+          const idx = parseInt(card.getAttribute('data-intent-idx'), 10);
+          preEl.textContent = JSON.stringify(intents[idx].payload, null, 2);
+        });
+      });
+    }
+
+    function appendLogs(logs) {
+      if (!logs || logs.length === 0) return;
+      const box = el('logConsole');
+      logs.forEach((entry) => {
+        lastLogSeq = Math.max(lastLogSeq, entry.seq);
+        const div = document.createElement('div');
+        const isMatch = entry.message.includes('SNIPER MATCH');
+        div.className = `log-line log-${entry.level} ${isMatch ? 'log-match' : ''}`;
+        div.innerHTML = `<span class="log-ts">[${escapeHtml(entry.ts)}]</span>[${escapeHtml(entry.level)}] ${escapeHtml(entry.message)}`;
+        box.appendChild(div);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function pollJobStatus() {
+      try {
+        const resp = await fetch(`/api/scrape/status?since_seq=${lastLogSeq}`);
+        const st = await resp.json();
+
+        appendLogs(st.logs);
+
+        const p = st.progress;
+        el('currentScopeLabel').textContent = p.current_scope || 'Idle';
+        el('progScopes').textContent = `${p.completed_scopes} / ${p.total_scopes}`;
+        el('progProviders').textContent = p.providers_seen;
+        el('progCalendars').textContent = p.calendars_checked;
+        el('progMatches').textContent = p.sniper_matches;
+        el('progElapsed').textContent = `${p.elapsed_seconds}s`;
+
+        const pct = p.total_scopes > 0 ? Math.min(100, Math.round((p.completed_scopes / p.total_scopes) * 100)) : 0;
+        el('progressBarFill').style.width = st.is_running ? `${Math.max(8, pct)}%` : (st.state === 'completed' ? '100%' : `${pct}%`);
+
+        const pill = el('jobStatePill');
+        pill.textContent = `Job: ${st.state.toUpperCase()}`;
+        pill.className = `pill ${st.state}`;
+
+        el('startBtn').disabled = st.is_running;
+        el('stopBtn').disabled = !st.is_running;
+
+        if (st.is_running) {
+          wasRunning = true;
+        } else if (wasRunning) {
+          wasRunning = false;
+          await refreshOverviewData();
+        }
+      } catch (err) {
+        console.error('Status poll error:', err);
+      }
+    }
+
+    // Event Listeners
+    document.querySelectorAll('#scrapeForm input, #scrapeForm select').forEach((input) => {
+      input.addEventListener('change', updateFormInteractivity);
+      input.addEventListener('input', updateFormInteractivity);
+    });
+
+    el('resetDefaultsBtn').addEventListener('click', applyDefaults);
+
+    el('copyCliBtn').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(el('cliPreviewText').textContent);
+      el('copyCliBtn').textContent = 'Copied!';
+      setTimeout(() => (el('copyCliBtn').textContent = 'Copy'), 1200);
+    });
+
+    el('copyPayloadBtn').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(el('payloadInspectorPre').textContent);
+      el('copyPayloadBtn').textContent = 'Copied!';
+      setTimeout(() => (el('copyPayloadBtn').textContent = 'Copy JSON'), 1200);
+    });
+
+    el('scrapeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      lastLogSeq = 0;
+      el('logConsole').innerHTML = '';
+      const payload = buildPayloadFromForm();
+      const resp = await fetch('/api/scrape/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert(err.detail || 'Could not start scrape job.');
+        return;
+      }
+      wasRunning = true;
+      await pollJobStatus();
+    });
+
+    el('stopBtn').addEventListener('click', async () => {
+      await fetch('/api/scrape/stop', { method: 'POST' });
+    });
+
+    el('testWebhookBtn').addEventListener('click', async () => {
+      const overrideUrl = el('webhookOverrideInput').value.trim();
+      const resp = await fetch('/api/webhooks/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook_url: overrideUrl }),
+      });
+      const res = await resp.json();
+      const box = el('logConsole');
+      const div = document.createElement('div');
+      div.className = 'log-line log-INFO log-match';
+      div.textContent = `[WEBHOOK TEST | ${res.mode}] Result: ${JSON.stringify(res.delivery)}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      el('payloadInspectorPre').textContent = JSON.stringify(res.payload, null, 2);
+    });
+
+    ['filterCity', 'filterSpecialty', 'filterInsurance', 'filterBookableOnly'].forEach((id) => {
+      el(id).addEventListener('change', refreshOverviewData);
+    });
+
+    el('refreshDataBtn').addEventListener('click', refreshOverviewData);
+
+    el('exportCsvBtn').addEventListener('click', () => {
+      window.location.href = `/api/data/export.csv?${buildFilterQueryString()}`;
+    });
+
+    el('exportJsonBtn').addEventListener('click', () => {
+      window.location.href = `/api/data/export.json?${buildFilterQueryString()}`;
+    });
+
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = el(btn.getAttribute('data-tab'));
+        target.classList.add('active');
+        if (btn.getAttribute('data-tab') === 'tabSniper' && leafletMap) {
+          setTimeout(() => leafletMap.invalidateSize(), 100);
+        }
+      });
+    });
+
+    // Bootstrap
+    (async () => {
+      initMap();
+      await loadMeta();
+      await refreshOverviewData();
+      await pollJobStatus();
+      pollTimer = setInterval(pollJobStatus, 1200);
+    })();
+  </script>
+</body>
+</html>
