@@ -1,0 +1,64 @@
+{
+  "data": {
+    "profile": {
+      "is_directory": false,
+      "organization": false,
+      "profile_path": "/kardiologie/berlin/mithal-nassar-berlin",
+      "slug": "mithal-nassar-berlin",
+      "id": 1226421,
+      "name": "Nassar",
+      "name_with_title": "Frau Dr. med. Mithal Nassar",
+      "website_url": "https://kardio-berlin-example.de",
+      "country": "de",
+      "subtitle": "Kardiologin",
+      "speciality": {
+        "id": 1295,
+        "kind": "medical",
+        "name": "Kardiologe",
+        "slug": "kardiologie"
+      },
+      "telehealth": false,
+      "skills_by_practice": {
+        "584647": [
+          {"kind": "procedure", "name": "Belastungs-EKG / Ergometrie"},
+          {"kind": "procedure", "name": "MRT Kardio / Herz"},
+          {"kind": "symptom", "name": "Herzrhythmusstörung"}
+        ]
+      },
+      "languages": [
+        {"iso_code": "ar"},
+        {"iso_code": "de"},
+        {"iso_code": "gb"}
+      ]
+    },
+    "details": [
+      {
+        "practice_id": 584647,
+        "regulation_sector": "Nur privat Versicherte oder Selbstzahlende",
+        "home_visit": false
+      }
+    ],
+    "doctor_place_city": "Berlin",
+    "places": [
+      {
+        "id": "practice-584647",
+        "address": "Dresdener Straße 123",
+        "zipcode": "10999",
+        "city": "Berlin",
+        "latitude": 52.5009571,
+        "longitude": 13.4166608,
+        "formal_name": "Kardiologische Privatpraxis Dr. med. Mithal Nassar",
+        "landline_number": "030 76725289",
+        "full_address": "Dresdener Straße 123, 10999 Berlin",
+        "opening_hours": [
+          {"day": 1, "ranges": [["10:00", "13:00"], ["14:00", "18:00"]], "enabled": true},
+          {"day": 2, "ranges": [["09:00", "13:00"], ["14:00", "18:00"]], "enabled": true}
+        ],
+        "practice_ids": [584647],
+        "stations": [
+          {"transport_type": "metro", "lines": ["U1", "U8"], "name": "U Kottbusser Tor"}
+        ]
+      }
+    ]
+  }
+}

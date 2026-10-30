@@ -1,0 +1,30 @@
+{
+  "München": [
+    {
+      "country": "DE",
+      "city": "München",
+      "speciality": "Augenarzt",
+      "url": "/augenheilkunde/muenchen"
+    },
+    {
+      "country": "DE",
+      "city": "München",
+      "speciality": "Hautarzt",
+      "url": "/hautarzt/muenchen"
+    },
+    {
+      "country": "DE",
+      "city": "München",
+      "speciality": "Kardiologe",
+      "url": "/kardiologie/muenchen"
+    }
+  ],
+  "Hamburg": [
+    {
+      "country": "DE",
+      "city": "Hamburg",
+      "speciality": "Kardiologe",
+      "url": "/kardiologie/hamburg"
+    }
+  ]
+}

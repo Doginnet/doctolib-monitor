@@ -1,0 +1,90 @@
+[
+  {
+    "city_name": "Berlin",
+    "canonical_specialty_slug": "hautarzt",
+    "insurance_sector": "private",
+    "total_checked": 12,
+    "with_open_slots": 12,
+    "avg_wait_days": 1.42,
+    "min_wait_days": 0.05,
+    "max_wait_days": 2.64,
+    "specialty_name": "Dermatologie (Hautarzt)"
+  },
+  {
+    "city_name": "Berlin",
+    "canonical_specialty_slug": "hautarzt",
+    "insurance_sector": "public",
+    "total_checked": 12,
+    "with_open_slots": 10,
+    "avg_wait_days": 2.75,
+    "min_wait_days": 0.69,
+    "max_wait_days": 3.87,
+    "specialty_name": "Dermatologie (Hautarzt)"
+  },
+  {
+    "city_name": "Berlin",
+    "canonical_specialty_slug": "kardiologie",
+    "insurance_sector": "private",
+    "total_checked": 12,
+    "with_open_slots": 12,
+    "avg_wait_days": 2.5,
+    "min_wait_days": 0.9,
+    "max_wait_days": 2.67,
+    "specialty_name": "Kardiologie"
+  },
+  {
+    "city_name": "Berlin",
+    "canonical_specialty_slug": "kardiologie",
+    "insurance_sector": "public",
+    "total_checked": 12,
+    "with_open_slots": 10,
+    "avg_wait_days": 24.23,
+    "min_wait_days": 2.67,
+    "max_wait_days": 40.71,
+    "specialty_name": "Kardiologie"
+  },
+  {
+    "city_name": "München",
+    "canonical_specialty_slug": "hautarzt",
+    "insurance_sector": "private",
+    "total_checked": 12,
+    "with_open_slots": 12,
+    "avg_wait_days": 1.53,
+    "min_wait_days": 0.02,
+    "max_wait_days": 2.63,
+    "specialty_name": "Dermatologie (Hautarzt)"
+  },
+  {
+    "city_name": "München",
+    "canonical_specialty_slug": "hautarzt",
+    "insurance_sector": "public",
+    "total_checked": 12,
+    "with_open_slots": 11,
+    "avg_wait_days": 9.72,
+    "min_wait_days": 0.55,
+    "max_wait_days": 26.72,
+    "specialty_name": "Dermatologie (Hautarzt)"
+  },
+  {
+    "city_name": "München",
+    "canonical_specialty_slug": "kardiologie",
+    "insurance_sector": "private",
+    "total_checked": 10,
+    "with_open_slots": 10,
+    "avg_wait_days": 2.66,
+    "min_wait_days": 2.63,
+    "max_wait_days": 2.72,
+    "specialty_name": "Kardiologie"
+  },
+  {
+    "city_name": "München",
+    "canonical_specialty_slug": "kardiologie",
+    "insurance_sector": "public",
+    "total_checked": 10,
+    "with_open_slots": 10,
+    "avg_wait_days": 10.1,
+    "min_wait_days": 2.72,
+    "max_wait_days": 27.75,
+    "specialty_name": "Kardiologie"
+  }
+]

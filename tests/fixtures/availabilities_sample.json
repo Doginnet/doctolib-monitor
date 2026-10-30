@@ -1,0 +1,32 @@
+{
+  "availabilities": [
+    {
+      "date": "2026-10-30",
+      "slots": [],
+      "substitution": null,
+      "appointment_request_slots": []
+    },
+    {
+      "date": "2026-10-31",
+      "slots": [
+        "2026-10-31T14:30:00.000+01:00",
+        "2026-10-31T15:30:00.000+01:00",
+        "2026-10-31T16:30:00.000+01:00"
+      ],
+      "substitution": null,
+      "appointment_request_slots": []
+    },
+    {
+      "date": "2026-11-02",
+      "slots": [
+        "2026-11-02T15:15:00.000+01:00",
+        "2026-11-02T16:15:00.000+01:00"
+      ],
+      "substitution": null,
+      "appointment_request_slots": []
+    }
+  ],
+  "total": 5,
+  "next_slot": null,
+  "reason": null
+}

@@ -1,0 +1,50 @@
+name: Doctolib Germany Daily Slot & Wait-Time Monitor
+
+on:
+  schedule:
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape-and-sync:
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv & Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies into isolated .venv
+        run: uv sync
+
+      - name: Run offline Pydantic & SQLite WAL unit tests
+        run: uv run pytest -m unit -v
+
+      - name: Execute multi-city GKV vs. PKV Doctolib sweep
+        run: uv run python -m src.main --ci-sweep --insurance both --max-doctors 20 --sniper-days 7 --auto-book-mock --notify
+
+      - name: Auto-commit updated SQLite database & CSV/JSON samples
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(data): automated Doctolib Germany slot & wait-time update [skip ci]"
+          file_pattern: "data/doctolib.db data/samples/**"
+
+      - name: Archive SQLite database snapshot as artifact (30 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctolib-sqlite-snapshot
+          path: data/doctolib.db
+          retention-days: 30

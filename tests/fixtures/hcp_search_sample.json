@@ -1,0 +1,116 @@
+{
+  "total": 18,
+  "healthcareProviders": [
+    {
+      "cloudinaryPublicId": "jdgzvdcdadx39rtibm69",
+      "id": "profile-765796;practice-664422;ct-kardio-herz",
+      "languages": ["de", "gb", "ro"],
+      "link": "/kardiologie/berlin/ramona-rus?pid=practice-664422",
+      "location": {
+        "address": "Joachim-Karnatz-Allee 47",
+        "city": "Berlin",
+        "country": "de",
+        "lat": 52.5193284,
+        "lng": 13.3556918,
+        "zipcode": "10557",
+        "distanceInMeters": null
+      },
+      "name": "Rus",
+      "references": {
+        "id": 765796,
+        "type": "public_profile",
+        "practiceId": 664422
+      },
+      "services": ["profile", "onlineBooking"],
+      "administrativeArea": [],
+      "exactMatch": true,
+      "firstName": "Ramona",
+      "gender": "female",
+      "matchedVisitMotive": {
+        "agendaIds": [2176252],
+        "allowNewPatients": true,
+        "fee": null,
+        "insuranceSector": {
+          "split": true,
+          "type": "PRIVATE"
+        },
+        "name": "Erstuntersuchung Neupatient:in",
+        "visitMotiveId": 13898103
+      },
+      "minimumFee": null,
+      "onlineBooking": {
+        "agendaIds": [2176252],
+        "telehealth": false,
+        "bookableOrganizationSpecialities": []
+      },
+      "organizationStatus": null,
+      "paymentMeans": [],
+      "regulationSector": "nur_privat_versichert_oder_selbstzahler",
+      "speciality": {
+        "name": "Kardiologin",
+        "slug": "kardiologie"
+      },
+      "title": "Dr. med.",
+      "type": "INDIVIDUAL_PRACTITIONER"
+    },
+    {
+      "cloudinaryPublicId": "ic6minfayr8e5pgek6f6",
+      "id": "profile-120063;practice-68581;ct-kardio-herz",
+      "languages": ["de", "gb"],
+      "link": "/privatpraxis/berlin/ct-mrt-institut-berlin?pid=practice-68581",
+      "location": {
+        "address": "Schloßstraße 34",
+        "city": "Berlin",
+        "country": "de",
+        "lat": 52.4575905,
+        "lng": 13.3203174,
+        "zipcode": "12163",
+        "distanceInMeters": null
+      },
+      "name": "CT-MRT Institut Berlin ",
+      "references": {
+        "id": 120063,
+        "type": "public_profile",
+        "practiceId": 68581
+      },
+      "services": ["profile", "onlineBooking"],
+      "administrativeArea": [],
+      "exactMatch": true,
+      "firstName": null,
+      "gender": null,
+      "matchedVisitMotive": {
+        "agendaIds": [175724],
+        "allowNewPatients": true,
+        "fee": null,
+        "insuranceSector": {
+          "split": true,
+          "type": "PRIVATE"
+        },
+        "name": "CT Abdomen",
+        "visitMotiveId": 1046814
+      },
+      "minimumFee": null,
+      "onlineBooking": {
+        "agendaIds": [175724],
+        "telehealth": true,
+        "bookableOrganizationSpecialities": []
+      },
+      "organizationStatus": {
+        "name": "Privatpraxis",
+        "slug": "privatpraxis"
+      },
+      "paymentMeans": [],
+      "regulationSector": null,
+      "speciality": {
+        "name": "CT Kardio / Herz",
+        "slug": "ct-kardio-herz"
+      },
+      "title": null,
+      "type": "ORGANIZATION"
+    }
+  ],
+  "searchedLocation": {
+    "lat": 52.5075419,
+    "lng": 13.42614475
+  }
+}

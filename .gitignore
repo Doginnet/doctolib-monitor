@@ -1,0 +1,31 @@
+# Virtual environments & Python cache
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Secrets & Environment
+.env
+.env.local
+
+# Raw scrape dumps & runtime logs
+data/raw/
+data/*.db-shm
+data/*.db-wal
+logs/
+
+# Internal Engineering & Notion Mirror Docs (kept locally, hidden from public repo)
+AGENTS.md
+PLAN.md
+PLAYBOOK.md
+SRS.md
+SCRAPER_SPEC.md
+TODO.md
+WORKFLOW.md
+docs/
