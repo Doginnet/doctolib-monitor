@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.16.2",
     "pydeck>=0.9.3",
     "pytest>=9.2.0",
+    "python-telegram-bot>=21.0",
     "rich>=15.0.0",
     "streamlit>=1.66.1",
     "uvicorn>=0.54.0",
@@ -23,6 +24,8 @@ dependencies = [
 
 [project.scripts]
 doctolib-monitor = "doctolib_monitor:main"
+doctolib-bot = "doctolib_monitor:main"
+doctolib-cli = "doctolib_monitor:run_cli"
 doctolib-web = "doctolib_monitor:run_web"
 
 [tool.pytest.ini_options]

@@ -38,6 +38,10 @@ def test_live_doctolib_chained_pipeline() -> None:
         assert avail is not None
         assert avail.profile_id == bookable.profile_id
 
+        funnel = extractor.fetch_booking_funnel(str(bookable.profile_url))
+        assert funnel.profile_id == bookable.profile_id
+        assert len(funnel.procedures) > 0
+
         enriched = extractor.fetch_enriched_profile(
             profile_slug="mithal-nassar-berlin",
             practice_id=58464,

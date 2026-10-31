@@ -1,0 +1,68 @@
+{
+  "data": {
+    "profile": {
+      "id": 765796,
+      "slug": "anne-winkelmann",
+      "name": "Winkelmann",
+      "name_with_title": "Dr. med. Anne Winkelmann",
+      "speciality": {
+        "id": 1295,
+        "name": "Kardiologin",
+        "slug": "kardiologie"
+      }
+    },
+    "places": [
+      {
+        "id": "practice-544676",
+        "name": "Kardiologische Facharztpraxis Dr. Anne Winkelmann",
+        "city": "Berlin",
+        "zipcode": "13053",
+        "address": "Suermondtstraße 13",
+        "latitude": 52.551165,
+        "longitude": 13.4910787,
+        "landline_number": "030 9876543",
+        "practice_ids": [544676]
+      }
+    ],
+    "visit_motives": [
+      {
+        "id": 10841912,
+        "name": "Echokardiografie Neupatient",
+        "telehealth": false,
+        "speciality_id": 1295
+      },
+      {
+        "id": 10841567,
+        "name": "Polygrafie - Schlafapnoe anlegen",
+        "telehealth": false,
+        "speciality_id": 1295
+      }
+    ],
+    "agendas": [
+      {
+        "id": 1697876,
+        "practice_id": 544676,
+        "booking_temporary_disabled": false,
+        "visit_motive_ids": [10841912],
+        "visit_motive_ids_by_practice_id": {
+          "544676": [10841912]
+        }
+      },
+      {
+        "id": 1720391,
+        "practice_id": 544676,
+        "booking_temporary_disabled": false,
+        "visit_motive_ids": [10841567],
+        "visit_motive_ids_by_practice_id": {
+          "544676": [10841567]
+        }
+      },
+      {
+        "id": 1999999,
+        "practice_id": 544676,
+        "booking_temporary_disabled": true,
+        "visit_motive_ids": [10841912]
+      }
+    ]
+  }
+}

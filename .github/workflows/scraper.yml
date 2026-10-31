@@ -34,7 +34,7 @@ jobs:
         run: uv run pytest -m unit -v
 
       - name: Execute multi-city GKV vs. PKV Doctolib sweep
-        run: uv run python -m src.main --ci-sweep --insurance both --max-doctors 20 --sniper-days 7 --auto-book-mock --notify
+        run: uv run python -m src.cli --ci-sweep --insurance both --max-doctors 20 --sniper-days 7 --auto-book-mock --notify
 
       - name: Auto-commit updated SQLite database & CSV/JSON samples
         uses: stefanzweifel/git-auto-commit-action@v5

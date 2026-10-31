@@ -975,7 +975,7 @@
             <span>Equivalent CLI Command</span>
             <button type="button" class="btn-mini" id="copyCliBtn">Copy</button>
           </div>
-          <div class="cli-code" id="cliPreviewText">uv run python -m src.main</div>
+          <div class="cli-code" id="cliPreviewText">uv run python -m src.cli</div>
         </div>
 
         <div class="btn-row">
@@ -1245,7 +1245,7 @@
       el('maxDoctorsInput').disabled = isAll;
 
       const p = buildPayloadFromForm();
-      const parts = ['uv run python -m src.main'];
+      const parts = ['uv run python -m src.cli'];
       if (p.ci_sweep) {
         parts.push('--ci-sweep');
       } else {

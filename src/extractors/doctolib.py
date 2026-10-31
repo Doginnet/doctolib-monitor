@@ -10,6 +10,7 @@ from loguru import logger
 from config.cities import resolve_city
 from src.core.client import ResilientHttpClient
 from src.models.availability import AvailabilityPayload, ComputedAvailability
+from src.models.funnel import BookingFunnelInfo, extract_doctolib_slug_and_pid
 from src.models.profile import EnrichedDoctorProfile
 from src.models.search import (
     HcpSearchResponse,
@@ -175,3 +176,60 @@ class DoctolibExtractor:
             referer_path=f"/profiles/{profile_slug}",
         )
         return EnrichedDoctorProfile.from_api_response(raw)
+
+    def fetch_booking_funnel(self, url_or_slug: str) -> BookingFunnelInfo:
+        """Endpoint #5: GET /online_booking/api/slot_selection_funnel/v1/info.json?profile_slug={slug}."""
+        slug, preferred_pid = extract_doctolib_slug_and_pid(url_or_slug)
+        raw = self.client.request_json(
+            "GET",
+            "/online_booking/api/slot_selection_funnel/v1/info.json",
+            params={"profile_slug": slug},
+            referer_path=f"/profiles/{slug}",
+        )
+        return BookingFunnelInfo.from_api_response(
+            raw,
+            fallback_slug=slug,
+            preferred_practice_id=preferred_pid,
+        )
+
+    def fetch_direct_motive_availability(
+        self,
+        *,
+        profile_id: int,
+        practice_id: int,
+        profile_slug: str,
+        visit_motive_id: int,
+        motive_name: str,
+        agenda_ids: list[int],
+        insurance_sector: str = "public",
+        telehealth: bool = False,
+        start_date: date | None = None,
+        limit_days: int = 15,
+    ) -> ComputedAvailability:
+        """Fetches live calendar slots directly for a specific doctor's selected procedure (visit_motive)."""
+        query_date = (start_date or datetime.now(timezone.utc).date()).isoformat()
+        sector = insurance_sector.strip().lower()
+        params = {
+            "visit_motive_ids": str(visit_motive_id),
+            "agenda_ids": "-".join(str(aid) for aid in agenda_ids),
+            "practice_ids": str(practice_id),
+            "insurance_sector": sector,
+            "telehealth": str(telehealth).lower(),
+            "start_date": query_date,
+            "limit": limit_days,
+        }
+        raw = self.client.request_json(
+            "GET",
+            "/availabilities.json",
+            params=params,
+            referer_path=f"/profiles/{profile_slug}",
+        )
+        avail_payload = AvailabilityPayload.model_validate(raw)
+        return avail_payload.compute_metrics(
+            profile_id=profile_id,
+            practice_id=practice_id,
+            visit_motive_id=visit_motive_id,
+            motive_name=motive_name,
+            insurance_sector=sector,
+            allow_new_patients=True,
+        )

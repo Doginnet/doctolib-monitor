@@ -1,39 +1,58 @@
-# Doctolib Germany — Real-Time Slot Sniper & Wait-Time Intelligence
+# Doctolib Germany — Real-Time Appointment Monitor & Wait-Time Intelligence
 
 ![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![uv](https://img.shields.io/badge/Package_Manager-uv-DE5FE9?logo=uv&logoColor=white)
-![FastAPI](https://img.shields.io/badge/Control_Center-FastAPI_%2B_HTML-009688?logo=fastapi&logoColor=white)
+![Telegram Bot](https://img.shields.io/badge/Telegram_Bot-%40doctolib__de__monitor__bot-26A5E4?logo=telegram&logoColor=white)
+![FastAPI](https://img.shields.io/badge/Engineer_Console-FastAPI_%2B_HTML-009688?logo=fastapi&logoColor=white)
 ![curl_cffi](https://img.shields.io/badge/Transport-curl__cffi_Chrome124_TLS-00C853)
 ![Pydantic v2](https://img.shields.io/badge/Validation-Pydantic_v2-E92063?logo=pydantic&logoColor=white)
 ![SQLite WAL](https://img.shields.io/badge/Storage-SQLite_WAL-003B57?logo=sqlite&logoColor=white)
 
-Production-grade **HealthTech Appointment Sniper, Geo-Directory & Healthcare Access Analytics Pipeline** for **Doctolib Germany (`doctolib.de`)**.
+Production-grade **HealthTech Appointment Monitor, Telegram Slot Alert Bot & Healthcare Access Analytics Pipeline** for **Doctolib Germany (`doctolib.de`)**.
 
-Instead of relying on slow, resource-heavy headless browsers, this system orchestrates a **4-stage chained REST API pipeline** over `curl_cffi` (Chrome 124 TLS/JA3 impersonation) with automatic Rails CSRF session bootstrapping and strict HTTP anti-cache headers—quantifying the wait-time gap between German **Public (`GKV / Gesetzlich`)** and **Private (`PKV / Privat`)** health insurance while detecting newly opened specialist slots in real time.
+Instead of relying on heavy headless browsers, this system orchestrates a **5-endpoint chained REST API pipeline** over `curl_cffi` (Chrome 124 TLS/JA3 impersonation) with automatic Rails CSRF session bootstrapping and strict HTTP anti-cache headers. It serves two complementary interfaces:
+1. **Primary User Product — Telegram Bot (`@doctolib_de_monitor_bot`):** Patients subscribe in 4 taps (either by **City + Specialty** or by **pasting a specific Doctor URL & selecting an exact procedure**) and receive instant push deep-links when cancelled **GKV (Public)** or **PKV (Private)** appointments open up.
+2. **Under-the-Hood Engineer Console — FastAPI + HTML Control Center:** Standalone web control plane exposing all scraper parameters, execution flags, live telemetry, Leaflet clinic geo-map, and **GKV vs. PKV** wait-time gap analytics.
 
 ---
 
-## Primary Web Interface (FastAPI + HTML Control Center)
+## Dual-Interface Architecture
 
-The primary interface (`src/web/api.py` + `src/web/static/index.html`) provides a complete browser-based scraper launcher with all target parameters, execution flag checkboxes, live job telemetry/log streaming, interactive Leaflet clinic geo-map, GKV vs. PKV comparison tables, CSV/JSON exports, and 1-click webhook testing.
+```mermaid
+flowchart LR
+    TG["User Plane: Telegram Bot (@doctolib_de_monitor_bot)"] --> Poller["Background Subscription Poller (Every 10 min + 24h Dedup)"]
+    Web["Engineer Plane: FastAPI HTML Console / CLI"] --> Runner["Unified Sweep Engine"]
+    Poller --> Core["ResilientHttpClient (curl_cffi Chrome 124 + CSRF + Anti-304)"]
+    Runner --> Core
+    Core --> API["Doctolib Germany REST APIs (/hcp/search, /info.json, /availabilities.json, /profiles.json)"]
+    Poller --> DB[("SQLite WAL (subscriptions, sent_slot_alerts, slot_snapshots)")]
+    Runner --> DB
+```
+
+### 1. User Plane: Telegram Subscription Bot (`src/main.py`)
+- **Mode A — City & Specialty Watch:** Monitor top clinics in 8 German cities across 12 high-demand specialties filtered by insurance (`GKV` / `PKV`), maximum wait horizon (`3 / 7 / 14 / 30 days`), and preferred time of day (`Morning / Midday / Evening / Any`).
+- **Mode B — Specific Doctor & Exact Procedure Watch:** Paste any `https://www.doctolib.de/...` profile URL into the chat. The bot queries `/online_booking/api/slot_selection_funnel/v1/info.json` to render that doctor's real procedures (`visit_motives`) as interactive buttons.
+- **Zero-Spam 24h Deduplication:** Every delivered alert is indexed in `sent_slot_alerts` (`subscription_id, profile_id, practice_id, slot_iso`) so users never receive repeated notifications for the same slot.
+- **1-Click Deep-Link Booking:** Alerts include a direct `Book Now on Doctolib ->` button (opening straight in the user's authenticated Doctolib mobile session without exposing patient credentials or 2FA codes) plus a `Booked / Stop This Alert` button.
+
+### 2. Engineer Plane: Standalone FastAPI + HTML Control Center (`src/web/api.py`)
+Designed for scraping engineers and data analysts to tune rate limits, run multi-city `GKV vs. PKV` benchmarks, inspect webhook payloads, and explore geo-coded clinic lead times.
 
 ![FastAPI HTML Control Center](assets/fastapi_control_center.png)
 
-### Secondary Analytics Showcase (Optional Streamlit + PyDeck Views)
-
 <details>
-<summary>Expand additional Streamlit + PyDeck analytics screenshots</summary>
+<summary>Expand additional Streamlit + PyDeck analytics views</summary>
 
-#### 1. Geo-Coded Clinic Availability Map
+#### Geo-Coded Clinic Availability Map
 ![Clinic Availability Geo-Map](assets/dashboard_geomap.png)
 
-#### 2. Urgent Appointment Sniper Feed
+#### Urgent Appointment Sniper Feed
 ![Appointment Sniper Feed](assets/dashboard_sniper.png)
 
-#### 3. Public (GKV) vs. Private (PKV) Wait-Time Analytics
+#### Public (GKV) vs. Private (PKV) Wait-Time Analytics
 ![GKV vs PKV Wait-Time Analytics](assets/dashboard_analytics.png)
 
-#### 4. Pluggable Dry-Run Auto-Booking & Webhook Console
+#### Webhook & n8n Payload Console
 ![Dry-Run Auto-Booking & Webhooks](assets/dashboard_webhooks.png)
 
 </details>
@@ -53,31 +72,7 @@ The primary interface (`src/web/api.py` + `src/web/static/index.html`) provides 
 
 ---
 
-## System Architecture
-
-```mermaid
-flowchart LR
-    UI["FastAPI HTML Control Center / CLI / n8n Trigger"] --> Warm["0. Session Warm-up (GET /login -> cookies + x-csrf-token)"]
-    Warm --> Search["1. HCP Geo-Search (POST /hcp/search?page=N, HTTP 206)"]
-    Search --> Slots["2. Live Calendar Check (GET /availabilities.json, no-cache)"]
-    Slots --> Sniper{"3. Urgent Match? (wait_time_days <= threshold)"}
-    Sniper -- "Yes" --> Enrich["4. Deep Profile Enrichment (GET /profiles/{slug}.json -> phone & hours)"]
-    Sniper -- "No" --> DB[("5. SQLite WAL + Soft-Deactivation Lifecycle")]
-    Enrich --> DB
-    Enrich --> Hook["6. Dry-Run Booking & n8n / Slack / Telegram Dispatcher"]
-    DB --> UI
-```
-
-### Key Engineering Highlights
-- **FastAPI Control Plane & HTML Launcher:** Asynchronous job management (`POST /api/scrape/start`, `POST /api/scrape/stop`, `GET /api/scrape/status`), OpenAPI `/docs`, and live browser telemetry.
-- **Dynamic Cookie-Free Bootstrap:** Automatically seeds `_doctolib_session` and Cloudflare `__cf_bm` cookies and extracts `<meta name="csrf-token">` without hardcoded expiring browser cookies.
-- **Anti-304 Cache Busting:** Strips conditional ETag headers (`If-None-Match`) and enforces `Cache-Control: no-cache, no-store, must-revalidate` to prevent stale CDN responses.
-- **SQLite WAL & Non-Destructive Lifecycle:** Uses SQL Window CTEs (`ROW_NUMBER() OVER (PARTITION BY profile_id, practice_id, insurance_sector ORDER BY id DESC)`) for zero-duplicate views and soft-deactivation (`is_active = 0`) instead of `DELETE`.
-- **Safe Mock Fallbacks:** Runs cleanly out-of-the-box without external API credentials (`Simulation Mode` for n8n/Slack/Telegram alerts and `DRY_RUN_MOCK` for reservations).
-
----
-
-## Quick Start
+## Quick Start & Entrypoints
 
 ### 1. Setup Environment (`uv`)
 ```bash
@@ -87,35 +82,52 @@ cp .env.example .env
 uv sync
 ```
 
-### 2. Launch Primary HTML + FastAPI Control Center
+Edit `.env` to configure your Telegram Bot token and polling cadence:
+```ini
+TELEGRAM_BOT_TOKEN=your_botfather_token_here
+BOT_POLL_INTERVAL_MINUTES=10
+BOT_MAX_DOCTORS_PER_SEARCH=15
+BOT_ALERT_DEDUP_HOURS=24
+```
+
+### 2. Run Primary Service (Telegram Bot + 10-Min Background Poller)
 ```bash
-uv run python -m src.web.api
+uv run python -m src.main
+# Or via script alias:
+uv run doctolib-bot
+```
+
+### 3. Launch Standalone Scraper Engineer Console (FastAPI + HTML)
+```bash
+uv run doctolib-web
 # Opens on http://127.0.0.1:8000 (Swagger API docs at http://127.0.0.1:8000/docs)
 ```
 
-### 3. Run via CLI (Headless / CI Mode)
+### 4. Run Standalone CLI Benchmark Sweeps
 ```bash
-# Compare GKV (public) vs. PKV (private) Cardiology slots in Berlin with Mock Auto-Booking
-uv run python -m src.main --city berlin --specialty kardiologie --insurance both --max-doctors 20 --sniper-days 7 --auto-book-mock --notify
+# Single city GKV vs. PKV comparison
+uv run doctolib-cli --city berlin --specialty kardiologie --insurance both --max-doctors 20
 
-# Run multi-city benchmark sweep (Berlin, München, Hamburg)
-uv run python -m src.main --ci-sweep --insurance both --max-doctors 20 --auto-book-mock --notify
+# Multi-city CI benchmark sweep (Berlin, München, Hamburg)
+uv run doctolib-cli --ci-sweep --insurance both --max-doctors 20
 ```
 
-**Supported German City Presets:** `berlin`, `muenchen`, `hamburg`, `koeln`, `frankfurt`, `stuttgart`, `duesseldorf`, `leipzig`.  
-**Curated Specialty Slugs:** `hautarzt`, `kardiologie`, `augenheilkunde`, `radiologe`, `orthopadie`, `neurologie`, `allgemeinmedizin`, `urologie`, `frauenarzt`, `zahnmedizin`.
-
-### 4. Optional Secondary Streamlit Dashboard
+### 5. Optional Secondary Streamlit Dashboard
 ```bash
 uv run streamlit run src/dashboard/app.py
 ```
 
-### 5. Run Automated Tests
+---
+
+## Testing Architecture
+
+The test suite is split into deterministic offline tests (`@pytest.mark.unit`, including full Telegram Bot & Poller mock tests) and live network smoke verification (`@pytest.mark.live`):
+
 ```bash
-# Fast offline unit suite (Pydantic v2, SQLite WAL, Sniper, FastAPI endpoints)
+# Offline unit & Telegram Bot mock tests (0 external network calls, ~1s)
 uv run pytest -m unit -v
 
-# Live network smoke test against doctolib.de
+# Live end-to-end smoke test against doctolib.de (all 5 chained endpoints)
 uv run pytest -m live -v
 ```
 
@@ -129,27 +141,30 @@ doctolib-monitor/
 │   └── scraper.yml                # Daily scheduled CI/CD sweep & flat-data auto-commit
 ├── assets/                        # FastAPI Control Center & Streamlit showcase screenshots
 ├── config/
-│   ├── cities.py                  # Bounding-box presets for 8 German cities & specialties
-│   └── settings.py                # Pydantic BaseSettings configuration
+│   ├── cities.py                  # Bounding-box presets for 8 German cities & 12 specialties
+│   └── settings.py                # Intuitive Pydantic BaseSettings (.env) configuration
 ├── data/
 │   ├── doctolib.db                # SQLite WAL relational database
 │   └── samples/                   # Clean CSV/JSON exports per city/specialty & global summary
 ├── src/
-│   ├── alerts/dispatcher.py       # n8n Webhook, Slack & Telegram dispatcher (Mock-safe)
-│   ├── booking/automator.py       # SniperRule evaluator & DryRunBookingAutomator
-│   ├── core/client.py             # ResilientHttpClient (curl_cffi Chrome 124 + CSRF refresh)
-│   ├── dashboard/app.py           # Secondary Streamlit + PyDeck analytics UI
-│   ├── extractors/doctolib.py     # 4-stage chained Doctolib Germany REST API extractor
-│   ├── models/                    # Strict Pydantic v2 schemas (search, availability, profile, booking)
-│   ├── pipelines/                 # Unified sweep runner, SQLite WAL storage & CSV/JSON exporter
-│   ├── web/
-│   │   ├── api.py                 # Primary FastAPI control server & REST endpoints
-│   │   └── static/index.html      # Primary HTML/JS launcher, live console & Leaflet geo-map
-│   └── main.py                    # Rich CLI runner & terminal analytics tables
+│   ├── alerts/dispatcher.py       # Optional n8n Webhook & Slack event forwarder
+│   ├── booking/automator.py       # CLI/Engineer SniperRule evaluator
+│   ├── bot/
+│   │   ├── poller.py              # Async 10-min SubscriptionPoller & 24h slot deduplicator
+│   │   └── telegram_bot.py        # Interactive Telegram Bot (City/Specialty & Doctor URL wizards)
+│   ├── core/client.py             # ResilientHttpClient (curl_cffi Chrome 124 + CSRF + anti-cache)
+│   ├── dashboard/app.py           # Optional Streamlit + PyDeck analytics UI
+│   ├── extractors/doctolib.py     # 5-endpoint Doctolib Germany REST API extractor
+│   ├── models/                    # Pydantic v2 schemas (search, funnel, availability, profile, booking)
+│   ├── pipelines/                 # Sweep runner, SQLite WAL storage & CSV/JSON exporter
+│   ├── web/                       # Standalone FastAPI server & HTML Engineer Control Center
+│   ├── cli.py                     # Standalone headless CLI scraper runner
+│   └── main.py                    # Primary entrypoint: Telegram Bot + Background Poller
 ├── tests/
-│   ├── fixtures/                  # Archived real doctolib.de JSON fixtures
-│   ├── test_unit.py               # Offline unit tests
-│   └── test_live.py               # Live smoke test
+│   ├── fixtures/                  # Archived real doctolib.de JSON fixtures (incl. booking funnel)
+│   ├── test_bot_mocks.py          # Offline mock tests for Telegram Bot commands, wizards & poller
+│   ├── test_unit.py               # Offline unit tests for Pydantic models, SQLite WAL & FastAPI
+│   └── test_live.py               # Live 5-endpoint smoke test against doctolib.de
 ├── .env.example
 └── pyproject.toml
 ```

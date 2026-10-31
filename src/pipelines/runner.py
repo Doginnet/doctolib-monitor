@@ -67,7 +67,7 @@ class SweepRunRequest(BaseModel):
 
     def to_cli_command(self) -> str:
         """Builds the equivalent CLI invocation string for UI display and reproducibility."""
-        parts = ["uv run python -m src.main"]
+        parts = ["uv run python -m src.cli"]
         if self.ci_sweep:
             parts.append("--ci-sweep")
         else:

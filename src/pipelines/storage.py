@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +122,50 @@ class DoctolibStorage:
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chat_id INTEGER NOT NULL,
+                    sub_type TEXT NOT NULL,
+                    city_slug TEXT,
+                    city_name TEXT,
+                    specialty_slug TEXT,
+                    specialty_name TEXT,
+                    doctor_slug TEXT,
+                    doctor_name TEXT,
+                    profile_id INTEGER,
+                    practice_id INTEGER,
+                    visit_motive_id INTEGER,
+                    visit_motive_name TEXT,
+                    agenda_ids_json TEXT DEFAULT '[]',
+                    telehealth INTEGER DEFAULT 0,
+                    clinic_address TEXT,
+                    clinic_phone TEXT,
+                    booking_url TEXT,
+                    insurance_sector TEXT NOT NULL,
+                    max_wait_days REAL NOT NULL DEFAULT 14.0,
+                    hour_start INTEGER NOT NULL DEFAULT 7,
+                    hour_end INTEGER NOT NULL DEFAULT 20,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    last_checked_at TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_subscriptions_active
+                    ON subscriptions(is_active, chat_id);
+
+                CREATE TABLE IF NOT EXISTS sent_slot_alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subscription_id INTEGER NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    profile_id INTEGER NOT NULL,
+                    practice_id INTEGER NOT NULL,
+                    slot_iso TEXT NOT NULL,
+                    sent_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_sent_alerts_dedup
+                    ON sent_slot_alerts(subscription_id, profile_id, practice_id, slot_iso);
                 """
             )
 
@@ -567,3 +611,188 @@ class DoctolibStorage:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    # -------------------------------------------------------------------------
+    # Telegram Bot Subscriptions & Deduplicated Slot Alerting
+    # -------------------------------------------------------------------------
+
+    def create_subscription(
+        self,
+        *,
+        chat_id: int,
+        sub_type: str,
+        insurance_sector: str,
+        max_wait_days: float,
+        hour_start: int = 7,
+        hour_end: int = 20,
+        city_slug: str | None = None,
+        city_name: str | None = None,
+        specialty_slug: str | None = None,
+        specialty_name: str | None = None,
+        doctor_slug: str | None = None,
+        doctor_name: str | None = None,
+        profile_id: int | None = None,
+        practice_id: int | None = None,
+        visit_motive_id: int | None = None,
+        visit_motive_name: str | None = None,
+        agenda_ids: list[int] | None = None,
+        telehealth: bool = False,
+        clinic_address: str | None = None,
+        clinic_phone: str | None = None,
+        booking_url: str | None = None,
+    ) -> int:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO subscriptions (
+                    chat_id, sub_type, city_slug, city_name, specialty_slug, specialty_name,
+                    doctor_slug, doctor_name, profile_id, practice_id, visit_motive_id,
+                    visit_motive_name, agenda_ids_json, telehealth, clinic_address, clinic_phone,
+                    booking_url, insurance_sector, max_wait_days, hour_start, hour_end,
+                    is_active, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    chat_id,
+                    sub_type,
+                    city_slug,
+                    city_name,
+                    specialty_slug,
+                    specialty_name,
+                    doctor_slug,
+                    doctor_name,
+                    profile_id,
+                    practice_id,
+                    visit_motive_id,
+                    visit_motive_name,
+                    json.dumps(agenda_ids or []),
+                    1 if telehealth else 0,
+                    clinic_address,
+                    clinic_phone,
+                    booking_url,
+                    insurance_sector.strip().lower(),
+                    max_wait_days,
+                    hour_start,
+                    hour_end,
+                    now_iso,
+                ),
+            )
+            return int(cur.lastrowid or 0)
+
+    def _deserialize_subscription(self, row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        try:
+            item["agenda_ids"] = json.loads(item.get("agenda_ids_json") or "[]")
+        except json.JSONDecodeError:
+            item["agenda_ids"] = []
+        item["telehealth"] = bool(item.get("telehealth"))
+        item["is_active"] = bool(item.get("is_active"))
+        return item
+
+    def get_subscription(self, sub_id: int) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM subscriptions WHERE id = ?", (sub_id,)).fetchone()
+            return self._deserialize_subscription(row) if row else None
+
+    def list_subscriptions(
+        self,
+        chat_id: int | None = None,
+        active_only: bool = True,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if active_only:
+            clauses.append("is_active = 1")
+        if chat_id is not None:
+            clauses.append("chat_id = ?")
+            params.append(chat_id)
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM subscriptions {where_sql} ORDER BY id DESC",
+                params,
+            ).fetchall()
+            return [self._deserialize_subscription(r) for r in rows]
+
+    def set_subscription_active(
+        self,
+        sub_id: int,
+        is_active: bool,
+        chat_id: int | None = None,
+    ) -> bool:
+        """Soft-toggles subscription state (is_active = 0/1) without destructive DELETE."""
+        params: list[Any] = [1 if is_active else 0, sub_id]
+        chat_clause = ""
+        if chat_id is not None:
+            chat_clause = " AND chat_id = ?"
+            params.append(chat_id)
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"UPDATE subscriptions SET is_active = ? WHERE id = ?{chat_clause}",
+                params,
+            )
+            return cur.rowcount > 0
+
+    def touch_subscription_checked(self, sub_id: int) -> None:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE subscriptions SET last_checked_at = ? WHERE id = ?",
+                (now_iso, sub_id),
+            )
+
+    def was_slot_alert_sent(
+        self,
+        *,
+        subscription_id: int,
+        profile_id: int,
+        practice_id: int,
+        slot_iso: str,
+        dedup_hours: float = 24.0,
+        now: datetime | None = None,
+    ) -> bool:
+        cutoff = ((now or datetime.now(timezone.utc)) - timedelta(hours=dedup_hours)).astimezone(
+            timezone.utc
+        )
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT sent_at FROM sent_slot_alerts
+                WHERE subscription_id = ? AND profile_id = ? AND practice_id = ? AND slot_iso = ?
+                ORDER BY id DESC LIMIT 1
+                """,
+                (subscription_id, profile_id, practice_id, slot_iso),
+            ).fetchone()
+            if not row:
+                return False
+            if dedup_hours <= 0:
+                return False
+            try:
+                sent_dt = datetime.fromisoformat(row["sent_at"]).astimezone(timezone.utc)
+                return sent_dt >= cutoff
+            except ValueError:
+                return True
+
+    def record_sent_slot_alert(
+        self,
+        *,
+        subscription_id: int,
+        chat_id: int,
+        profile_id: int,
+        practice_id: int,
+        slot_iso: str,
+        sent_at: datetime | None = None,
+    ) -> None:
+        ts = (sent_at or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO sent_slot_alerts (
+                    subscription_id, chat_id, profile_id, practice_id, slot_iso, sent_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (subscription_id, chat_id, profile_id, practice_id, slot_iso, ts),
+            )
