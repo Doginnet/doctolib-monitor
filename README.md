@@ -138,7 +138,7 @@ uv run pytest -m live -v
 ```text
 doctolib-monitor/
 ├── .github/workflows/
-│   └── scraper.yml                # Daily scheduled CI/CD sweep & flat-data auto-commit
+│   └── ci.yml                     # Automated CI pipeline (unit, FastAPI & Telegram Bot mock tests)
 ├── assets/                        # FastAPI Control Center & Streamlit showcase screenshots
 ├── config/
 │   ├── cities.py                  # Bounding-box presets for 8 German cities & 12 specialties

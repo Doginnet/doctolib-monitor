@@ -1,0 +1,33 @@
+name: CI — Unit & Telegram Bot Mock Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-mock-tests:
+    name: Python 3.12 Offline Unit & Bot Mock Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv & Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies into isolated .venv
+        run: uv sync --locked || uv sync
+
+      - name: Run offline Pydantic, SQLite WAL, FastAPI & Telegram Bot mock tests
+        run: uv run pytest -m unit -v
